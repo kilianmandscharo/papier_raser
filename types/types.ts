@@ -16,3 +16,8 @@ export type Options = Vector2d[];
 export type Velocity = Vector2d;
 
 export type Race = Record<string, Racer>;
+
+export interface PlayerLobby {
+  name: string;
+  ready: boolean;
+}

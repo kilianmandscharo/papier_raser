@@ -1,7 +1,12 @@
 "use client";
 
+import { PlayerLobby } from "@/types/types";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
+import PlayerList from "../_components/PlayerList";
+import Button from "@/app/_components/Button";
+import H1 from "@/app/_components/H1";
+import InviteButton from "../_components/InviteButton";
 
 const URL = "http://localhost:8000";
 
@@ -13,7 +18,7 @@ interface Props {
 
 export default function Page({ params }: Props) {
   const [isConnected, setIsConnected] = useState<boolean>(socket.connected);
-  const [players, setPlayers] = useState<string[]>([]);
+  const [players, setPlayers] = useState<PlayerLobby[]>([]);
   const [name, setName] = useState<string>("");
   const [nameSet, setNameSet] = useState<boolean>(false);
 
@@ -29,56 +34,60 @@ export default function Page({ params }: Props) {
     function onDisconnect() {
       setIsConnected(false);
     }
-    function onNewPlayer(name: string) {
-      setPlayers((prev) => [...prev, name]);
+    function onNewPlayer(player: PlayerLobby) {
+      setPlayers((prev) => [...prev, player]);
     }
-    function onNewPlayerInit(names: string[]) {
-      setPlayers(names);
+    function onNewPlayerInit(players: PlayerLobby[]) {
+      setPlayers(players);
+    }
+    function onReady(name: string) {
+      setPlayers((prev) =>
+        prev.map((p) => (p.name === name ? { ...p, ready: true } : p))
+      );
     }
 
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("newPlayerResponse", onNewPlayer);
     socket.on("newPlayerInit", onNewPlayerInit);
+    socket.on("readyResponse", onReady);
 
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("newPlayerResponse", onNewPlayer);
       socket.off("newPlayerInit", onNewPlayerInit);
+      socket.off("readyResponse", onReady);
     };
   }, []);
 
+  const handleReady = () => {
+    socket.emit("ready", { name, id: params.id });
+  };
+
   return (
     <>
-      <h1>Lobby</h1>
-      {nameSet ? (
-        <>
-          <div
-            className={`${
-              isConnected ? "bg-green-500" : "bg-red-500"
-            } w-4 h-4 rounded-full`}
-          />
-          <div>
-            {players.map((p) => (
-              <p key={p}>{p}</p>
-            ))}
+      <H1>Neues Spiel</H1>
+      <div className="grid gap-4">
+        {nameSet ? (
+          <>
+            <PlayerList players={players} name={name} />
+            <Button onClick={handleReady}>Bereit</Button>
+            <InviteButton gameID={params.id} />
+          </>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p>Gib deinen Namen ein:</p>
+            <input
+              className="text-black p-2 rounded-md"
+              placeholder="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <Button onClick={submitName}>Fertig</Button>
           </div>
-        </>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <p>Please enter your name:</p>
-          <input
-            className="text-black p-2"
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <button className="bg-orange-900 rounded-md p-2" onClick={submitName}>
-            Submit name
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }
